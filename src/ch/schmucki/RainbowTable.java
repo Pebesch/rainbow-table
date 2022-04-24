@@ -41,10 +41,6 @@ public class RainbowTable {
             logger.addHandler(fh);
             SimpleFormatter formatter = new SimpleFormatter();
             fh.setFormatter(formatter);
-
-            // the following statement is used to log any messages
-            logger.info("My first log");
-
         } catch (SecurityException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -67,7 +63,14 @@ public class RainbowTable {
             String initialPassword = generatePassword(i);
             String password = initialPassword;
             for(int j = 0; j < chainLength; j++) {
-                password = reducePassword(hashPassword(password), j);
+                BigInteger nextHash = hashPassword(password);
+                String nextHashStr = bigIntToString(nextHash);
+                password = reducePassword(nextHash, j);
+
+                if(initialPassword.equals("00000rs")) {
+                    logger.info(String.format("Next hash: %s", nextHashStr));
+                    logger.info(String.format("Next reduce: %s", password));
+                }
             }
             if(verbose) logger.info(String.format("Added password %s", password));
             map.put(initialPassword, password);
@@ -105,7 +108,7 @@ public class RainbowTable {
     }
 
     private String bigIntToString(BigInteger hash) {
-        return String.format("%016x", hash);
+        return String.format("%032x", hash);
     }
 
     private BigInteger stringToBigInteger(String hash) {
@@ -132,12 +135,20 @@ public class RainbowTable {
 
     // TODO fix reverse lookup
     public String lookupHash(String hash) {
+        String initialPassword = hash;
         for(Map.Entry<String, String> entry : plainTextToHash.entrySet()) {
+            String password = initialPassword;
             for(int i = 0; i < chainLength; i++) {
-                BigInteger hashInt = stringToBigInteger(hash);
-                String reduce = reducePassword(hashInt, i);
-                if(reduce.equals(entry.getValue())) return entry.getKey();
-                hash = bigIntToString(hashPassword(reduce));
+                BigInteger nextHash = hashPassword(password);
+                String nextHashStr = bigIntToString(nextHash);
+                password = reducePassword(nextHash, i);
+                if(entry.getKey().equals("00000rs")) {
+                    logger.info(String.format("Next hash: %s", nextHashStr));
+                    logger.info(String.format("Next reduce: %s", password));
+                }
+                if(nextHashStr.equals(initialPassword)) return entry.getKey();
+                // Optimization since the hash is already the password in the table
+                if(password.equals(entry.getValue())) break;
             }
         }
         return null;
