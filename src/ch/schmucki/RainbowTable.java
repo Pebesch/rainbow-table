@@ -135,20 +135,24 @@ public class RainbowTable {
 
     // TODO fix reverse lookup
     public String lookupHash(String hash) {
-        String initialPassword = hash;
-        for(Map.Entry<String, String> entry : plainTextToHash.entrySet()) {
-            String password = initialPassword;
-            for(int i = 0; i < chainLength; i++) {
-                BigInteger nextHash = hashPassword(password);
-                String nextHashStr = bigIntToString(nextHash);
-                password = reducePassword(nextHash, i);
-                if(entry.getKey().equals("00000rs")) {
-                    logger.info(String.format("Next hash: %s", nextHashStr));
-                    logger.info(String.format("Next reduce: %s", password));
+        int distanceToChainEnd;
+        String password = null;
+
+        for(int i = chainLength - 1; i >= 0; i--) {
+            distanceToChainEnd = chainLength - i;
+            password = hash;
+            for(int j = 0; j < distanceToChainEnd; j++) {
+                if(j == distanceToChainEnd - 1) {
+                    password = reducePassword(stringToBigInteger(password), i + j);
+                } else {
+                    password = bigIntToString(hashPassword(reducePassword(stringToBigInteger(password), i + j)));
                 }
-                if(nextHashStr.equals(initialPassword)) return entry.getKey();
-                // Optimization since the hash is already the password in the table
-                if(password.equals(entry.getValue())) break;
+            }
+        }
+
+        if(plainTextToHash.containsValue(password)) {
+            for(Map.Entry<String, String> entry : plainTextToHash.entrySet()) {
+                if(entry.getValue().equals(password)) return entry.getKey();
             }
         }
         return null;
