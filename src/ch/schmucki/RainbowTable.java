@@ -66,11 +66,6 @@ public class RainbowTable {
                 BigInteger nextHash = hashPassword(password);
                 String nextHashStr = bigIntToString(nextHash);
                 password = reducePassword(nextHash, j);
-
-                if(initialPassword.equals("00000rs")) {
-                    logger.info(String.format("Next hash: %s", nextHashStr));
-                    logger.info(String.format("Next reduce: %s", password));
-                }
             }
             if(verbose) logger.info(String.format("Added password %s", password));
             map.put(initialPassword, password);
@@ -108,7 +103,7 @@ public class RainbowTable {
     }
 
     private String bigIntToString(BigInteger hash) {
-        return String.format("%032x", hash);
+        return hash.toString(16);
     }
 
     private BigInteger stringToBigInteger(String hash) {
@@ -133,26 +128,42 @@ public class RainbowTable {
         return plainTextToHash.get(hash);
     }
 
-    // TODO fix reverse lookup
     public String lookupHash(String hash) {
-        int distanceToChainEnd;
         String password = null;
 
         for(int i = chainLength - 1; i >= 0; i--) {
-            distanceToChainEnd = chainLength - i;
             password = hash;
-            for(int j = 0; j < distanceToChainEnd; j++) {
-                if(j == distanceToChainEnd - 1) {
-                    password = reducePassword(stringToBigInteger(password), i + j);
-                } else {
-                    password = bigIntToString(hashPassword(reducePassword(stringToBigInteger(password), i + j)));
+            for(int j = i; j < chainLength; j++) {
+                String result = reducePassword(stringToBigInteger(password), j);
+                if(plainTextToHash.containsValue(result)) {
+                    for(String key : plainTextToHash.keySet()) {
+
+                        String hashAtIndex = null;
+                        String roundPassword = key;
+                        for(int k = 0; k < i; k++) {
+                            BigInteger nextHash = hashPassword(roundPassword);
+                            hashAtIndex = bigIntToString(nextHash);
+                            roundPassword = reducePassword(nextHash, k);
+                        }
+                        if(hashAtIndex.equals(Constants.hash) && !key.equals(result)) {
+                            return null;
+                        }
+                    }
+
+                    return getKeyForValue(result);
+
                 }
+
+                password = bigIntToString(hashPassword(result));
             }
         }
+        return null;
+    }
 
-        if(plainTextToHash.containsValue(password)) {
+    private String getKeyForValue(String value) {
+        if(plainTextToHash.containsValue(value)) {
             for(Map.Entry<String, String> entry : plainTextToHash.entrySet()) {
-                if(entry.getValue().equals(password)) return entry.getKey();
+                if(entry.getValue().equals(value)) return entry.getKey();
             }
         }
         return null;
