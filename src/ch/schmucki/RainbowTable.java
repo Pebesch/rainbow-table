@@ -50,6 +50,7 @@ public class RainbowTable {
         plainTextToHash = generatePasswords();
     }
 
+    // Generates all end reduced values and stores the pair <PlainText, EndReduce>
     private Map<String, String> generatePasswords() {
         Map<String, String> map = new HashMap<>();
 
@@ -59,12 +60,12 @@ public class RainbowTable {
             logger.info(String.valueOf(numberOfPasswords % Constants.countAllowedChars()));
         }
 
+        // Creates all passwords and calculates hashes and reduces
         for(int i = 0; i < numberOfPasswords; i++) {
             String initialPassword = generatePassword(i);
             String password = initialPassword;
             for(int j = 0; j < chainLength; j++) {
                 BigInteger nextHash = hashPassword(password);
-                String nextHashStr = bigIntToString(nextHash);
                 password = reducePassword(nextHash, j);
             }
             if(verbose) logger.info(String.format("Added password %s", password));
@@ -74,6 +75,7 @@ public class RainbowTable {
         return map;
     }
 
+    // Generates a password for a given index
     private String generatePassword(int index) {
         StringBuilder sb = new StringBuilder();
         for(int i = 0; i < passwordLength; i++) sb.append("0");
@@ -95,6 +97,7 @@ public class RainbowTable {
         return sb.toString();
     }
 
+    // Hashes a password with the instanciated md
     private BigInteger hashPassword(String password) {
         md.update(password.getBytes());
         BigInteger hash = new BigInteger(1, md.digest());
@@ -102,14 +105,17 @@ public class RainbowTable {
         return hash;
     }
 
+    // Conversion Function
     private String bigIntToString(BigInteger hash) {
         return hash.toString(16);
     }
 
+    // Conversion Function
     private BigInteger stringToBigInteger(String hash) {
         return new BigInteger(hash, 16);
     }
 
+    // Reduces a hash at a given level
     private String reducePassword(BigInteger hash, int level) {
         StringBuilder sb = new StringBuilder();
         for(int i = 0; i < passwordLength; i++) sb.append("0");
@@ -124,17 +130,18 @@ public class RainbowTable {
         return sb.toString();
     }
 
-    public String lookupPassword(String hash) {
-        return plainTextToHash.get(hash);
-    }
-
     public String lookupHash(String hash) {
         String password = null;
 
+        // Loop backwards
         for(int i = chainLength - 1; i >= 0; i--) {
             password = hash;
+            // Go forth
             for(int j = i; j < chainLength; j++) {
+                // Generate the next reduce
                 String result = reducePassword(stringToBigInteger(password), j);
+
+                // Collision Check
                 if(plainTextToHash.containsValue(result)) {
                     for(String key : plainTextToHash.keySet()) {
 
@@ -149,17 +156,19 @@ public class RainbowTable {
                             return null;
                         }
                     }
-
+                    // If no collision was found return the password
                     return getKeyForValue(result);
 
                 }
-
+                // Go further
                 password = bigIntToString(hashPassword(result));
             }
         }
+        // If no result was found return null
         return null;
     }
 
+    // Helper function for the map
     private String getKeyForValue(String value) {
         if(plainTextToHash.containsValue(value)) {
             for(Map.Entry<String, String> entry : plainTextToHash.entrySet()) {
